@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>クリエイター手取り計算機</title>
+<style>
+  :root {
+    --bg: #f5f7f7;
+    --panel: #ffffff;
+    --border: #dfe6e5;
+    --text: #24312f;
+    --muted: #6b7a78;
+    --accent: #0d9488;
+    --accent-dark: #0b7a70;
+    --ok: #0d9488;
+    --ok-bg: #e6f7f5;
+    --warn: #b8860b;
+    --warn-bg: #fff8e1;
+    --locked: #9a948a;
+    --best: #fff4d6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+  }
+  header {
+    background: linear-gradient(135deg, #0d9488, #0f766e);
+    color: #fff;
+    padding: 32px 20px 26px;
+    text-align: center;
+  }
+  header h1 { margin: 0 0 8px; font-size: 1.6rem; }
+  header p { margin: 0; opacity: .92; font-size: .95rem; }
+  .disclaimer {
+    max-width: 780px;
+    margin: 18px auto 0;
+    background: rgba(255,255,255,.15);
+    border: 1px solid rgba(255,255,255,.4);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: .82rem;
+  }
+  main { max-width: 820px; margin: 0 auto; padding: 24px 16px 60px; }
+  section.card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  section.card h2 {
+    margin: 0 0 4px;
+    font-size: 1.05rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  section.card .desc { color: var(--muted); font-size: .85rem; margin: 0 0 14px; }
+  .badge {
+    display: inline-block;
+    font-size: .7rem;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #eee;
+    color: var(--muted);
+    font-weight: bold;
+  }
+  .badge.pro { background: #fff1cc; color: #8a6100; }
+
+  label.field { display: block; margin-bottom: 14px; }
+  label.field .lbl { font-size: .85rem; font-weight: bold; }
+  label.field input, label.field select {
+    width: 100%; margin-top: 5px; padding: 8px 10px;
+    border: 1px solid var(--border); border-radius: 8px;
+    font-size: .95rem; font-family: inherit; background: #fbfdfc;
+  }
+  .row2 { display: flex; gap: 12px; }
+  .row2 > * { flex: 1; }
+
+  .platform-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-bottom: 6px; }
+  .platform-chip {
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+    display: flex; align-items: center; gap: 8px; font-size: .85rem; cursor: pointer;
+    background: #fbfdfc;
+  }
+  .platform-chip.selected { border-color: var(--accent); background: var(--ok-bg); }
+  .platform-chip input { margin: 0; }
+  .group-label { font-size: .78rem; color: var(--muted); margin: 14px 0 6px; font-weight: bold; }
+
+  .sub-options { margin-top: 10px; padding: 12px; background: #f7f9f8; border-radius: 8px; font-size: .84rem; }
+  .sub-options label { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+
+  #results { margin-top: 18px; }
+  .result-row {
+    display: flex; justify-content: space-between; align-items: center;
+    border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 16px; margin-bottom: 8px; background: #fff;
+  }
+  .result-row.best { border-color: #d4a017; background: var(--best); }
+  .result-row .name { font-weight: bold; font-size: .92rem; }
+  .result-row .sub { color: var(--muted); font-size: .76rem; margin-top: 2px; }
+  .result-row .amount { font-size: 1.15rem; font-weight: bold; color: var(--accent-dark); }
+  .result-row.best .amount { color: #8a6100; }
+  .crown { font-size: .75rem; color: #8a6100; font-weight: bold; }
+
+  .teaser {
+    margin-top: 12px; padding: 14px; border: 1px dashed var(--locked); border-radius: 10px;
+    text-align: center; color: var(--muted); font-size: .85rem; filter: blur(0);
+  }
+  .teaser .blurred { filter: blur(4px); user-select: none; }
+
+  .locked-panel {
+    border: 1px dashed var(--locked);
+    border-radius: 10px;
+    padding: 18px;
+    text-align: center;
+    color: var(--muted);
+    background: #fafaf8;
+  }
+  .locked-panel .feat-list { text-align: left; max-width: 460px; margin: 12px auto; font-size: .85rem; padding-left: 1.2em; }
+  .buy-btn {
+    display: inline-block; margin-top: 10px;
+    background: var(--accent); color: #fff; font-weight: bold;
+    padding: 10px 22px; border-radius: 999px; text-decoration: none;
+    font-size: .9rem;
+  }
+  .buy-btn:hover { background: var(--accent-dark); }
+
+  .btn-secondary {
+    background: #fff; border: 1px solid var(--border); color: var(--text);
+    padding: 8px 14px; border-radius: 8px; font-size: .82rem; cursor: pointer;
+  }
+  .btn-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+
+  table.compare { width: 100%; border-collapse: collapse; font-size: .84rem; margin-top: 10px; }
+  table.compare th, table.compare td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; }
+  table.compare th { color: var(--muted); font-weight: normal; font-size: .78rem; }
+  table.compare tr.best-row td { background: var(--best); font-weight: bold; }
+
+  .history-item {
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 12px; margin-bottom: 8px;
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: .84rem;
+  }
+  .history-item .h-meta { color: var(--muted); font-size: .76rem; }
+  .history-item .h-del { background: none; border: none; color: #d0392b; cursor: pointer; font-size: .8rem; }
+
+  footer {
+    max-width: 820px; margin: 0 auto; padding: 0 16px 40px;
+    font-size: .76rem; color: var(--muted);
+  }
+  footer .updated { font-weight: bold; }
+  footer a { color: var(--muted); }
+
+  @media print {
+    header .disclaimer, .btn-row, #pro-section, .buy-btn, #history-section .btn-row { display: none !important; }
+    body { background: #fff; }
+    header { background: #0d9488 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    section.card { break-inside: avoid; border: 1px solid #ccc; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>クリエイター手取り計算機</h1>
+  <p>note・Gumroad・DLsite・Fanbox〜Patreon・Ko-fi・Substackまで、手数料込みの実質手取りを横断比較</p>
+  <div class="disclaimer">
+    ⚠️ 各プラットフォームの手数料は<strong>2026年9月時点の公表情報に基づく概算</strong>です。料率は予告なく変更される場合があるため、正確な金額は各プラットフォーム公式のヘルプ・シミュレーターでも必ずご確認ください。
+  </div>
+</header>
+
+<main>
+
+  <section class="card">
+    <h2>① 販売価格を入力</h2>
+    <div class="row2">
+      <label class="field">
+        <span class="lbl">販売価格</span>
+        <input type="number" id="in-price" value="1000" min="0" step="1">
+      </label>
+      <label class="field">
+        <span class="lbl">通貨</span>
+        <select id="in-currency">
+          <option value="JPY">円(JPY)</option>
+          <option value="USD">ドル(USD)</option>
+        </select>
+      </label>
+    </div>
+    <label class="field" id="fx-field">
+      <span class="lbl">為替レート(1USD = 何円、海外プラットフォーム換算に使用)</span>
+      <input type="number" id="in-fx" value="150" min="1" step="0.1">
+    </label>
+  </section>
+
+  <section class="card">
+    <h2>② プラットフォームを選択 <span class="badge" id="edition-badge">FREE版: 1つ選択</span></h2>
+    <p class="desc">買い切り版では複数選択して横断比較できます。</p>
+
+    <div class="group-label">🇯🇵 日本</div>
+    <div class="platform-grid" id="grp-jp"></div>
+
+    <div class="group-label">🌐 海外</div>
+    <div class="platform-grid" id="grp-global"></div>
+
+    <div class="sub-options" id="sub-options"></div>
+  </section>
+
+  <section class="card">
+    <h2>③ 結果</h2>
+    <div id="results"></div>
+    <div id="teaser" class="teaser" style="display:none;"></div>
+  </section>
+
+  <section class="card" id="pro-section">
+    <h2>④ 横断比較・逆算・履歴保存 <span class="badge pro">買い切り版</span></h2>
+    <div class="locked-panel">
+      <p>買い切り版(ダウンロード購入)では、以下の機能が使えます:</p>
+      <ul class="feat-list">
+        <li>選択した全プラットフォームを一覧比較(手取り額でソート、最有利プラットフォームをハイライト)</li>
+        <li>比較結果のCSV出力</li>
+        <li>「月間目標手取り額」から逆算した必要販売価格・必要販売数の計算</li>
+        <li>複数価格シナリオの保存・履歴管理(確定申告の下準備にも)</li>
+      </ul>
+      <a class="buy-btn" href="#" id="buyLink" target="_blank" rel="noopener">買い切り版を見る(BOOTH)</a>
+    </div>
+  </section>
+
+  <section class="card" id="compare-section" style="display:none;">
+    <h2>④ 横断比較</h2>
+    <table class="compare" id="compare-table"></table>
+    <div class="btn-row">
+      <button class="btn-secondary" id="csvBtn">CSV出力</button>
+    </div>
+  </section>
+
+  <section class="card" id="reverse-section" style="display:none;">
+    <h2>⑤ 目標手取り額から逆算</h2>
+    <label class="field">
+      <span class="lbl">月間目標手取り額(円)</span>
+      <input type="number" id="in-target" value="50000" min="0" step="1000">
+    </label>
+    <div id="reverse-results"></div>
+  </section>
+
+  <section class="card" id="history-section" style="display:none;">
+    <h2>⑥ シナリオ保存</h2>
+    <div class="btn-row" style="margin-top:0;">
+      <input type="text" id="historyLabelInput" placeholder="例) 新刊マンガ 500円版" style="flex:1; padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-size:.85rem;">
+      <button class="btn-secondary" id="saveHistoryBtn">現在の内容を保存</button>
+    </div>
+    <div id="historyList" style="margin-top:14px;"></div>
+  </section>
+
+  <div class="btn-row">
+    <button class="btn-secondary" id="resetBtn">入力内容をリセット</button>
+  </div>
+
+</main>
+
+<footer>
+  <p><span class="updated">最終更新: 2026年9月5日時点の公表手数料に基づいて作成。</span>
+  各プラットフォームの料率改定に気づき次第、無償でアップデート版を配布します。</p>
+  <p>本ツールは完全にブラウザ内で動作し、入力した価格・通貨・為替レートはどこにも送信されません(開発者ツールのネットワークタブで通信が発生しないことをご確認いただけます)。</p>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  var EDITION = "free"; // "full" で買い切り完全版
+
+  var FEE_TABLE = {
+    version: "2026-09-05",
+    note: {
+      label: "note",
+      region: "jp",
+      compute: function (price, opts) {
+        var platformRate = opts.subscription ? 0.20 : 0.10;
+        var paymentRates = { card: 0.05, paypay: 0.07, carrier: 0.15 };
+        var paymentRate = paymentRates[opts.payment || "card"];
+        var fee = price * platformRate + price * paymentRate;
+        return { net: price - fee, feeBreakdown: [
+          { label: "プラットフォーム利用料(" + (platformRate*100).toFixed(0) + "%)", amount: price * platformRate },
+          { label: "決済手数料(" + (opts.payment||"card") + " " + (paymentRate*100).toFixed(0) + "%)", amount: price * paymentRate }
+        ]};
+      },
+      options: ["payment"]
+    },
+    gumroad_jp: {
+      label: "Gumroad(直接リンク)",
+      region: "jp",
+      compute: function (price) {
+        var rate = 0.10, fixed = 0.50 * 150; // $0.50相当を円換算(概算)
+        var processingRate = 0.029, processingFixed = 0.30 * 150;
+        var fee = price * rate + fixed + price * processingRate + processingFixed;
+        return { net: price - fee, feeBreakdown: [
+          { label: "Gumroad手数料(10%+$0.50)", amount: price * rate + fixed },
+          { label: "決済処理(2.9%+$0.30)", amount: price * processingRate + processingFixed }
+        ]};
+      }
+    },
+    dlsite: {
+      label: "DLsite",
+      region: "jp",
+      compute: function (price, opts) {
+        var rate;
+        if (price <= 600) rate = 0.50;
+        else if (price <= 3900) {
+          var t = (price - 700) / (3900 - 700);
+          rate = 0.4286 - t * (0.4286 - 0.205);
+        } else {
+          rate = opts.invoice ? 0.20 : 0.216;
+        }
+        var fee = price * rate;
+        var withholding = 0; // 概算では源泉徴収は年間集計ベースのため個別計算には含めない
+        return { net: price - fee, feeBreakdown: [
+          { label: "DLsite手数料(概算" + (rate*100).toFixed(1) + "%)", amount: fee }
+        ], note: "源泉徴収(年間100万円以下10.21%/超過分20.42%)は年間ベースのためここには含めていません" };
+      },
+      options: ["invoice"]
+    },
+    fanbox: {
+      label: "Fanbox(pixiv)",
+      region: "jp",
+      compute: function (price, opts) {
+        var rate = opts.r18 ? 0.129 : 0.10;
+        var fee = price * rate;
+        return { net: price - fee, feeBreakdown: [
+          { label: "Fanbox手数料(" + (opts.r18?"R-18 12.9%":"通常10%") + ")", amount: fee }
+        ]};
+      },
+      options: ["r18"]
+    },
+    gumroad_global: {
+      label: "Gumroad(海外向け)",
+      region: "global",
+      compute: function (priceUsd) {
+        var rate = 0.10, fixed = 0.50;
+        var processingRate = 0.029, processingFixed = 0.30;
+        var fee = priceUsd * rate + fixed + priceUsd * processingRate + processingFixed;
+        return { netUsd: priceUsd - fee, feeBreakdownUsd: [
+          { label: "Gumroad手数料(10%+$0.50)", amount: priceUsd * rate + fixed },
+          { label: "決済処理(2.9%+$0.30)", amount: priceUsd * processingRate + processingFixed }
+        ]};
+      }
+    },
+    patreon: {
+      label: "Patreon",
+      region: "global",
+      compute: function (priceUsd, opts, fx) {
+        var rate = 0.10;
+        var small = priceUsd <= 3;
+        var procRate = small ? 0.05 : 0.029;
+        var procFixed = small ? 0.10 : 0.30;
+        var fee = priceUsd * rate + priceUsd * procRate + procFixed;
+        var fxFee = opts.foreignCurrency ? priceUsd * 0.025 : 0;
+        fee += fxFee;
+        return { netUsd: priceUsd - fee, feeBreakdownUsd: [
+          { label: "Patreon手数料(新規10%)", amount: priceUsd * rate },
+          { label: "決済処理(" + (procRate*100).toFixed(1) + "%+$" + procFixed.toFixed(2) + ")", amount: priceUsd * procRate + procFixed },
+          { label: "為替手数料(2.5%、異なる通貨での支払い時)", amount: fxFee }
+        ]};
+      },
+      options: ["foreignCurrency"]
+    },
+    kofi: {
+      label: "Ko-fi",
+      region: "global",
+      compute: function (priceUsd, opts) {
+        var rate = opts.gold ? 0 : 0.05;
+        var procRate = 0.029, procFixed = 0.30;
+        var fee = priceUsd * rate + priceUsd * procRate + procFixed;
+        return { netUsd: priceUsd - fee, feeBreakdownUsd: [
+          { label: "Ko-fi手数料(" + (opts.gold ? "Gold契約 0%" : "無料プラン5%") + ")", amount: priceUsd * rate },
+          { label: "決済処理(2.9%+$0.30)", amount: priceUsd * procRate + procFixed }
+        ]};
+      },
+      options: ["gold"]
+    },
+    substack: {
+      label: "Substack",
+      region: "global",
+      compute: function (priceUsd, opts) {
+        var rate = 0.10;
+        var procRate = 0.029, procFixed = 0.30;
+        var fxFee = opts.foreignCurrency ? priceUsd * 0.015 : 0;
+        var fee = priceUsd * rate + priceUsd * procRate + procFixed + fxFee;
+        return { netUsd: priceUsd - fee, feeBreakdownUsd: [
+          { label: "Substack手数料(10%)", amount: priceUsd * rate },
+          { label: "決済処理(2.9%+$0.30)", amount: priceUsd * procRate + procFixed },
+          { label: "為替手数料(1〜2%、異なる通貨での支払い時)", amount: fxFee }
+        ]};
+      },
+      options: ["foreignCurrency"]
+    }
+  };
+
+  var PLATFORM_ORDER_JP = ["note", "gumroad_jp", "dlsite", "fanbox"];
+  var PLATFORM_ORDER_GLOBAL = ["gumroad_global", "patreon", "kofi", "substack"];
+
+  var OPTION_DEFS = {
+    payment: { label: "note決済手段", type: "select", choices: [["card","クレジットカード(5%)"],["paypay","PayPay(7%)"],["carrier","キャリア決済(15%)"]] },
+    invoice: { label: "インボイス登録済み(4,000円以上の価格帯に影響)", type: "checkbox" },
+    r18: { label: "R-18設定(手数料12.9%になります)", type: "checkbox" },
+    gold: { label: "Ko-fi Gold契約中($12/月、手数料0%)", type: "checkbox" },
+    foreignCurrency: { label: "支払い通貨が自分の受取通貨と異なる(為替手数料が発生)", type: "checkbox" }
+  };
+
+  var selected = {}; // platformKey -> true
+  var platformOpts = {}; // platformKey -> {optName: value}
+
+  function fmtYen(n) { return "¥" + Math.round(n).toLocaleString(); }
+  function fmtUsd(n) { return "$" + n.toFixed(2); }
+
+  function buildChip(key, def, groupEl) {
+    var chip = document.createElement("label");
+    chip.className = "platform-chip";
+    chip.dataset.key = key;
+    var input = document.createElement("input");
+    input.type = EDITION === "full" ? "checkbox" : "radio";
+    input.name = "platform-select";
+    input.addEventListener("change", function () {
+      if (EDITION === "full") {
+        if (input.checked) selected[key] = true; else delete selected[key];
+      } else {
+        selected = {};
+        selected[key] = true;
+        document.querySelectorAll(".platform-chip").forEach(function (c) { c.classList.remove("selected"); });
+      }
+      chip.classList.toggle("selected", !!selected[key]);
+      renderSubOptions();
+      compute();
+    });
+    chip.appendChild(input);
+    var span = document.createElement("span");
+    span.textContent = def.label;
+    chip.appendChild(span);
+    groupEl.appendChild(chip);
+  }
+
+  var grpJp = document.getElementById("grp-jp");
+  var grpGlobal = document.getElementById("grp-global");
+  PLATFORM_ORDER_JP.forEach(function (k) { buildChip(k, FEE_TABLE[k], grpJp); });
+  PLATFORM_ORDER_GLOBAL.forEach(function (k) { buildChip(k, FEE_TABLE[k], grpGlobal); });
+
+  function renderSubOptions() {
+    var container = document.getElementById("sub-options");
+    container.innerHTML = "";
+    var keys = Object.keys(selected);
+    if (!keys.length) { container.style.display = "none"; return; }
+    container.style.display = "block";
+    keys.forEach(function (key) {
+      var def = FEE_TABLE[key];
+      if (!def.options) return;
+      def.options.forEach(function (optName) {
+        var od = OPTION_DEFS[optName];
+        if (!platformOpts[key]) platformOpts[key] = {};
+        var row = document.createElement("label");
+        if (od.type === "checkbox") {
+          row.innerHTML = '<input type="checkbox" data-platform="' + key + '" data-opt="' + optName + '"> <span>' + def.label + ': ' + od.label + '</span>';
+        } else if (od.type === "select") {
+          var optionsHtml = od.choices.map(function (c) { return '<option value="' + c[0] + '">' + c[1] + '</option>'; }).join("");
+          row.innerHTML = '<span>' + def.label + ': ' + od.label + '</span> <select data-platform="' + key + '" data-opt="' + optName + '" style="margin-left:8px;padding:4px;border-radius:6px;border:1px solid var(--border);">' + optionsHtml + '</select>';
+        }
+        container.appendChild(row);
+      });
+    });
+    container.querySelectorAll("input[type=checkbox]").forEach(function (cb) {
+      cb.addEventListener("change", function () {
+        platformOpts[cb.dataset.platform][cb.dataset.opt] = cb.checked;
+        compute();
+      });
+    });
+    container.querySelectorAll("select").forEach(function (sel) {
+      sel.addEventListener("change", function () {
+        platformOpts[sel.dataset.platform][sel.dataset.opt] = sel.value;
+        compute();
+      });
+      platformOpts[sel.dataset.platform][sel.dataset.opt] = sel.value;
+    });
+  }
+
+  function getOpts(key) { return platformOpts[key] || {}; }
+
+  function computeOne(key, priceJpy, fx) {
+    var def = FEE_TABLE[key];
+    var opts = getOpts(key);
+    if (def.region === "jp") {
+      var r = def.compute(priceJpy, opts);
+      return { key: key, label: def.label, netJpy: r.net, feeBreakdown: r.feeBreakdown, note: r.note };
+    } else {
+      var priceUsd = priceJpy / fx;
+      var r2 = def.compute(priceUsd, opts, fx);
+      return { key: key, label: def.label, netJpy: r2.netUsd * fx, netUsd: r2.netUsd, feeBreakdown: (r2.feeBreakdownUsd || []).map(function (f) {
+        return { label: f.label, amount: f.amount * fx };
+      }) };
+    }
+  }
+
+  var lastResults = [];
+
+  function compute() {
+    var price = parseFloat(document.getElementById("in-price").value) || 0;
+    var currency = document.getElementById("in-currency").value;
+    var fx = parseFloat(document.getElementById("in-fx").value) || 150;
+    var priceJpy = currency === "USD" ? price * fx : price;
+
+    var keys = Object.keys(selected);
+    var results = keys.map(function (k) { return computeOne(k, priceJpy, fx); });
+    results.sort(function (a, b) { return b.netJpy - a.netJpy; });
+    lastResults = results;
+
+    renderResults(results, priceJpy);
+
+    if (EDITION === "full") {
+      renderCompareTable(results);
+      renderReverse(results, fx);
+    }
+  }
+
+  function renderResults(results, priceJpy) {
+    var el = document.getElementById("results");
+    var teaser = document.getElementById("teaser");
+    el.innerHTML = "";
+    if (!results.length) {
+      el.innerHTML = '<p style="color:var(--muted);font-size:.85rem;">プラットフォームを選択すると、手取り額が表示されます。</p>';
+      teaser.style.display = "none";
+      return;
+    }
+
+    results.forEach(function (r, i) {
+      var row = document.createElement("div");
+      row.className = "result-row" + (i === 0 && results.length > 1 ? " best" : "");
+      var breakdown = r.feeBreakdown.map(function (f) { return f.label + ": -" + fmtYen(f.amount); }).join(" / ");
+      row.innerHTML =
+        '<div><div class="name">' + (i === 0 && results.length > 1 ? '<span class="crown">👑 </span>' : '') + r.label + '</div>' +
+        '<div class="sub">' + breakdown + '</div></div>' +
+        '<div class="amount">' + fmtYen(r.netJpy) + '</div>';
+      el.appendChild(row);
+    });
+
+    if (EDITION !== "full" && results.length === 1) {
+      var diffs = estimateOtherPlatformSpread(priceJpy, results[0].key);
+      if (diffs) {
+        teaser.style.display = "block";
+        teaser.innerHTML = '他のプラットフォームで売ると、手取りは<span class="blurred">¥' + diffs.min.toLocaleString() + '〜¥' + diffs.max.toLocaleString() + '</span>の範囲で変わります。<br>買い切り版なら全プラットフォームを一度に比較できます。';
+      } else {
+        teaser.style.display = "none";
+      }
+    } else {
+      teaser.style.display = "none";
+    }
+  }
+
+  function estimateOtherPlatformSpread(priceJpy, excludeKey) {
+    var fx = parseFloat(document.getElementById("in-fx").value) || 150;
+    var allKeys = PLATFORM_ORDER_JP.concat(PLATFORM_ORDER_GLOBAL).filter(function (k) { return k !== excludeKey; });
+    var nets = allKeys.map(function (k) { return computeOne(k, priceJpy, fx).netJpy; });
+    if (!nets.length) return null;
+    return { min: Math.round(Math.min.apply(null, nets)), max: Math.round(Math.max.apply(null, nets)) };
+  }
+
+  function renderCompareTable(results) {
+    var section = document.getElementById("compare-section");
+    var table = document.getElementById("compare-table");
+    if (!results.length) { section.style.display = "none"; return; }
+    section.style.display = "block";
+    var rows = results.map(function (r, i) {
+      return "<tr" + (i === 0 && results.length > 1 ? ' class="best-row"' : '') + "><td>" + r.label + "</td><td>" + fmtYen(r.netJpy) + "</td></tr>";
+    }).join("");
+    table.innerHTML = "<tr><th>プラットフォーム</th><th>手取り額</th></tr>" + rows;
+  }
+
+  function renderReverse(results, fx) {
+    var section = document.getElementById("reverse-section");
+    if (!results.length) { section.style.display = "none"; return; }
+    section.style.display = "block";
+    var target = parseFloat(document.getElementById("in-target").value) || 0;
+    var el = document.getElementById("reverse-results");
+    el.innerHTML = "";
+    results.forEach(function (r) {
+      var price = parseFloat(document.getElementById("in-price").value) || 1;
+      var currency = document.getElementById("in-currency").value;
+      var priceJpy = currency === "USD" ? price * fx : price;
+      if (priceJpy <= 0 || r.netJpy <= 0) return;
+      var ratio = r.netJpy / priceJpy;
+      var neededPrice = ratio > 0 ? target / ratio : 0;
+      var neededCount = neededPrice > 0 ? Math.ceil(target / r.netJpy) : 0;
+      var row = document.createElement("div");
+      row.className = "result-row";
+      row.innerHTML = '<div><div class="name">' + r.label + '</div><div class="sub">現在の価格(' + fmtYen(priceJpy) + ')なら ' + neededCount + '個の販売が必要</div></div><div class="amount">価格' + fmtYen(neededPrice) + 'なら1個</div>';
+      el.appendChild(row);
+    });
+  }
+
+  document.getElementById("in-price").addEventListener("input", compute);
+  document.getElementById("in-currency").addEventListener("change", compute);
+  document.getElementById("in-fx").addEventListener("input", compute);
+  var targetInput = document.getElementById("in-target");
+  if (targetInput) targetInput.addEventListener("input", compute);
+
+  document.getElementById("edition-badge").textContent = EDITION === "full" ? "買い切り版: 複数選択可" : "FREE版: 1つ選択";
+  if (EDITION === "full") {
+    document.getElementById("pro-section").style.display = "none";
+    document.getElementById("history-section").style.display = "block";
+  }
+
+  // ============ CSV出力 ============
+  var csvBtn = document.getElementById("csvBtn");
+  if (csvBtn) {
+    csvBtn.addEventListener("click", function () {
+      var rows = [["プラットフォーム", "手取り額(円)"]];
+      lastResults.forEach(function (r) { rows.push([r.label, Math.round(r.netJpy)]); });
+      var csv = rows.map(function (r) { return r.join(","); }).join("\n");
+      var blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url; a.download = "手取り比較.csv";
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  // ============ シナリオ保存(買い切り版) ============
+  var HISTORY_KEY = "creator_net_calc_history_v1";
+  function loadHistory() { try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); } catch (e) { return []; } }
+  function saveHistoryList(list) { localStorage.setItem(HISTORY_KEY, JSON.stringify(list)); }
+
+  function renderHistoryList() {
+    var listEl = document.getElementById("historyList");
+    if (!listEl) return;
+    var list = loadHistory();
+    if (!list.length) { listEl.innerHTML = '<p class="desc" style="margin:0;">まだ保存されたシナリオはありません。</p>'; return; }
+    listEl.innerHTML = "";
+    list.slice().reverse().forEach(function (entry) {
+      var row = document.createElement("div");
+      row.className = "history-item";
+      var date = new Date(entry.savedAt);
+      var dateStr = date.getFullYear() + "/" + (date.getMonth()+1) + "/" + date.getDate();
+      row.innerHTML = "<div><strong>" + entry.label.replace(/[<>&]/g, function(c){return {"<":"&lt;",">":"&gt;","&":"&amp;"}[c];}) + "</strong><div class=\"h-meta\">" + dateStr + " ・ " + entry.price + "円 ・ 最有利: " + entry.bestLabel + "(" + fmtYen(entry.bestNet) + ")</div></div>";
+      var delBtn = document.createElement("button");
+      delBtn.className = "h-del"; delBtn.textContent = "削除";
+      delBtn.addEventListener("click", function () {
+        if (!confirm("「" + entry.label + "」を削除しますか?")) return;
+        saveHistoryList(loadHistory().filter(function (e) { return e.id !== entry.id; }));
+        renderHistoryList();
+      });
+      row.appendChild(delBtn);
+      listEl.appendChild(row);
+    });
+  }
+
+  var saveHistoryBtn = document.getElementById("saveHistoryBtn");
+  if (saveHistoryBtn) {
+    saveHistoryBtn.addEventListener("click", function () {
+      var label = document.getElementById("historyLabelInput").value.trim();
+      if (!label) { alert("シナリオ名を入力してください(例: 新刊マンガ 500円版)"); return; }
+      if (!lastResults.length) { alert("先にプラットフォームを選択してください"); return; }
+      var entry = {
+        id: Date.now() + "-" + Math.random().toString(36).slice(2, 8),
+        label: label, savedAt: Date.now(),
+        price: document.getElementById("in-price").value,
+        bestLabel: lastResults[0].label, bestNet: lastResults[0].netJpy
+      };
+      var list = loadHistory(); list.push(entry); saveHistoryList(list);
+      document.getElementById("historyLabelInput").value = "";
+      renderHistoryList();
+    });
+    renderHistoryList();
+  }
+
+  document.getElementById("resetBtn").addEventListener("click", function () {
+    if (!confirm("入力内容をリセットしますか?")) return;
+    document.getElementById("in-price").value = 1000;
+    document.getElementById("in-currency").value = "JPY";
+    document.getElementById("in-fx").value = 150;
+    selected = {}; platformOpts = {};
+    document.querySelectorAll(".platform-chip input").forEach(function (i) { i.checked = false; });
+    document.querySelectorAll(".platform-chip").forEach(function (c) { c.classList.remove("selected"); });
+    renderSubOptions();
+    compute();
+  });
+
+  compute();
+})();
+</script>
+</body>
+</html>
