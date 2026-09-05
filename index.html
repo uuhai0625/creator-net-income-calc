@@ -67,7 +67,7 @@
     padding: 2px 8px;
     border-radius: 999px;
     background: #eee;
-    color: var(--muted);
+    color: #4a4a4a;
     font-weight: bold;
   }
   .badge.pro { background: #fff1cc; color: #8a6100; }
@@ -146,7 +146,7 @@
     border: 1px solid var(--border); border-radius: 8px;
     padding: 10px 12px; margin-bottom: 8px;
     display: flex; justify-content: space-between; align-items: center;
-    font-size: .84rem;
+    font-size: .84rem; word-break: break-all;
   }
   .history-item .h-meta { color: var(--muted); font-size: .76rem; }
   .history-item .h-del { background: none; border: none; color: #d0392b; cursor: pointer; font-size: .8rem; }
@@ -252,6 +252,7 @@
   <section class="card" id="history-section" style="display:none;">
     <h2>⑥ シナリオ保存</h2>
     <div class="btn-row" style="margin-top:0;">
+      <label for="historyLabelInput" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);">シナリオ名</label>
       <input type="text" id="historyLabelInput" placeholder="例) 新刊マンガ 500円版" style="flex:1; padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-size:.85rem;">
       <button class="btn-secondary" id="saveHistoryBtn">現在の内容を保存</button>
     </div>
@@ -296,9 +297,10 @@
     gumroad_jp: {
       label: "Gumroad(直接リンク)",
       region: "jp",
-      compute: function (price) {
-        var rate = 0.10, fixed = 0.50 * 150; // $0.50相当を円換算(概算)
-        var processingRate = 0.029, processingFixed = 0.30 * 150;
+      compute: function (price, opts, fx) {
+        var fxRate = fx || 150;
+        var rate = 0.10, fixed = 0.50 * fxRate; // $0.50相当を円換算(概算)
+        var processingRate = 0.029, processingFixed = 0.30 * fxRate;
         var fee = price * rate + fixed + price * processingRate + processingFixed;
         return { net: price - fee, feeBreakdown: [
           { label: "Gumroad手数料(10%+$0.50)", amount: price * rate + fixed },
@@ -311,7 +313,7 @@
       region: "jp",
       compute: function (price, opts) {
         var rate;
-        if (price <= 600) rate = 0.50;
+        if (price < 700) rate = 0.50;
         else if (price <= 3900) {
           var t = (price - 700) / (3900 - 700);
           rate = 0.4286 - t * (0.4286 - 0.205);
@@ -493,7 +495,7 @@
     var def = FEE_TABLE[key];
     var opts = getOpts(key);
     if (def.region === "jp") {
-      var r = def.compute(priceJpy, opts);
+      var r = def.compute(priceJpy, opts, fx);
       return { key: key, label: def.label, netJpy: r.net, feeBreakdown: r.feeBreakdown, note: r.note };
     } else {
       var priceUsd = priceJpy / fx;
@@ -509,7 +511,7 @@
   function compute() {
     var price = parseFloat(document.getElementById("in-price").value) || 0;
     var currency = document.getElementById("in-currency").value;
-    var fx = parseFloat(document.getElementById("in-fx").value) || 150;
+    var fx = Math.abs(parseFloat(document.getElementById("in-fx").value)) || 150;
     var priceJpy = currency === "USD" ? price * fx : price;
 
     var keys = Object.keys(selected);
@@ -560,7 +562,7 @@
   }
 
   function estimateOtherPlatformSpread(priceJpy, excludeKey) {
-    var fx = parseFloat(document.getElementById("in-fx").value) || 150;
+    var fx = Math.abs(parseFloat(document.getElementById("in-fx").value)) || 150;
     var allKeys = PLATFORM_ORDER_JP.concat(PLATFORM_ORDER_GLOBAL).filter(function (k) { return k !== excludeKey; });
     var nets = allKeys.map(function (k) { return computeOne(k, priceJpy, fx).netJpy; });
     if (!nets.length) return null;
@@ -631,7 +633,7 @@
   // ============ シナリオ保存(買い切り版) ============
   var HISTORY_KEY = "creator_net_calc_history_v1";
   function loadHistory() { try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); } catch (e) { return []; } }
-  function saveHistoryList(list) { localStorage.setItem(HISTORY_KEY, JSON.stringify(list)); }
+  function saveHistoryList(list) { try { localStorage.setItem(HISTORY_KEY, JSON.stringify(list)); } catch (e) { alert("保存に失敗しました(ブラウザの保存容量やプライベートブラウジング設定をご確認ください)。"); } }
 
   function renderHistoryList() {
     var listEl = document.getElementById("historyList");
@@ -640,20 +642,23 @@
     if (!list.length) { listEl.innerHTML = '<p class="desc" style="margin:0;">まだ保存されたシナリオはありません。</p>'; return; }
     listEl.innerHTML = "";
     list.slice().reverse().forEach(function (entry) {
-      var row = document.createElement("div");
-      row.className = "history-item";
-      var date = new Date(entry.savedAt);
-      var dateStr = date.getFullYear() + "/" + (date.getMonth()+1) + "/" + date.getDate();
-      row.innerHTML = "<div><strong>" + entry.label.replace(/[<>&]/g, function(c){return {"<":"&lt;",">":"&gt;","&":"&amp;"}[c];}) + "</strong><div class=\"h-meta\">" + dateStr + " ・ " + entry.price + "円 ・ 最有利: " + entry.bestLabel + "(" + fmtYen(entry.bestNet) + ")</div></div>";
-      var delBtn = document.createElement("button");
-      delBtn.className = "h-del"; delBtn.textContent = "削除";
-      delBtn.addEventListener("click", function () {
-        if (!confirm("「" + entry.label + "」を削除しますか?")) return;
-        saveHistoryList(loadHistory().filter(function (e) { return e.id !== entry.id; }));
-        renderHistoryList();
-      });
-      row.appendChild(delBtn);
-      listEl.appendChild(row);
+      try {
+        var label = (entry.label || "(名称未設定)").toString().replace(/[<>&]/g, function(c){return {"<":"&lt;",">":"&gt;","&":"&amp;"}[c];});
+        var row = document.createElement("div");
+        row.className = "history-item";
+        var date = new Date(entry.savedAt || Date.now());
+        var dateStr = date.getFullYear() + "/" + (date.getMonth()+1) + "/" + date.getDate();
+        row.innerHTML = "<div><strong>" + label + "</strong><div class=\"h-meta\">" + dateStr + " ・ " + (entry.price || "-") + "円 ・ 最有利: " + (entry.bestLabel || "-") + "(" + fmtYen(entry.bestNet || 0) + ")</div></div>";
+        var delBtn = document.createElement("button");
+        delBtn.className = "h-del"; delBtn.textContent = "削除";
+        delBtn.addEventListener("click", function () {
+          if (!confirm("「" + label + "」を削除しますか?")) return;
+          saveHistoryList(loadHistory().filter(function (e) { return e.id !== entry.id; }));
+          renderHistoryList();
+        });
+        row.appendChild(delBtn);
+        listEl.appendChild(row);
+      } catch (e) { /* 壊れた履歴データはスキップ */ }
     });
   }
 
