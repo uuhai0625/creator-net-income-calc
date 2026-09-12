@@ -16,7 +16,6 @@
     gtag('config', GA_ID);
   })();
 </script>
-
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>クリエイター手取り計算機</title>
@@ -248,32 +247,7 @@
     </div>
   </section>
 
-  <section class="card" id="compare-section" style="display:none;">
-    <h2>④ 横断比較</h2>
-    <table class="compare" id="compare-table"></table>
-    <div class="btn-row">
-      <button class="btn-secondary" id="csvBtn">CSV出力</button>
-    </div>
-  </section>
-
-  <section class="card" id="reverse-section" style="display:none;">
-    <h2>⑤ 目標手取り額から逆算</h2>
-    <label class="field">
-      <span class="lbl">月間目標手取り額(円)</span>
-      <input type="number" id="in-target" value="50000" min="0" step="1000">
-    </label>
-    <div id="reverse-results"></div>
-  </section>
-
-  <section class="card" id="history-section" style="display:none;">
-    <h2>⑥ シナリオ保存</h2>
-    <div class="btn-row" style="margin-top:0;">
-      <label for="historyLabelInput" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);">シナリオ名</label>
-      <input type="text" id="historyLabelInput" placeholder="例) 新刊マンガ 500円版" style="flex:1; padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-size:.85rem;">
-      <button class="btn-secondary" id="saveHistoryBtn">現在の内容を保存</button>
-    </div>
-    <div id="historyList" style="margin-top:14px;"></div>
-  </section>
+  
 
   <div class="btn-row">
     <button class="btn-secondary" id="resetBtn">入力内容をリセット</button>
@@ -538,10 +512,7 @@
 
     renderResults(results, priceJpy);
 
-    if (EDITION === "full") {
-      renderCompareTable(results);
-      renderReverse(results, fx);
-    }
+    
   }
 
   function renderResults(results, priceJpy) {
@@ -586,38 +557,7 @@
     return { min: Math.round(Math.min.apply(null, nets)), max: Math.round(Math.max.apply(null, nets)) };
   }
 
-  function renderCompareTable(results) {
-    var section = document.getElementById("compare-section");
-    var table = document.getElementById("compare-table");
-    if (!results.length) { section.style.display = "none"; return; }
-    section.style.display = "block";
-    var rows = results.map(function (r, i) {
-      return "<tr" + (i === 0 && results.length > 1 ? ' class="best-row"' : '') + "><td>" + r.label + "</td><td>" + fmtYen(r.netJpy) + "</td></tr>";
-    }).join("");
-    table.innerHTML = "<tr><th>プラットフォーム</th><th>手取り額</th></tr>" + rows;
-  }
-
-  function renderReverse(results, fx) {
-    var section = document.getElementById("reverse-section");
-    if (!results.length) { section.style.display = "none"; return; }
-    section.style.display = "block";
-    var target = parseFloat(document.getElementById("in-target").value) || 0;
-    var el = document.getElementById("reverse-results");
-    el.innerHTML = "";
-    results.forEach(function (r) {
-      var price = parseFloat(document.getElementById("in-price").value) || 1;
-      var currency = document.getElementById("in-currency").value;
-      var priceJpy = currency === "USD" ? price * fx : price;
-      if (priceJpy <= 0 || r.netJpy <= 0) return;
-      var ratio = r.netJpy / priceJpy;
-      var neededPrice = ratio > 0 ? target / ratio : 0;
-      var neededCount = neededPrice > 0 ? Math.ceil(target / r.netJpy) : 0;
-      var row = document.createElement("div");
-      row.className = "result-row";
-      row.innerHTML = '<div><div class="name">' + r.label + '</div><div class="sub">現在の価格(' + fmtYen(priceJpy) + ')なら ' + neededCount + '個の販売が必要</div></div><div class="amount">価格' + fmtYen(neededPrice) + 'なら1個</div>';
-      el.appendChild(row);
-    });
-  }
+  
 
   document.getElementById("in-price").addEventListener("input", compute);
   document.getElementById("in-currency").addEventListener("change", compute);
@@ -626,77 +566,7 @@
   if (targetInput) targetInput.addEventListener("input", compute);
 
   document.getElementById("edition-badge").textContent = EDITION === "full" ? "買い切り版: 複数選択可" : "FREE版: 1つ選択";
-  if (EDITION === "full") {
-    document.getElementById("pro-section").style.display = "none";
-    document.getElementById("history-section").style.display = "block";
-  }
-
-  // ============ CSV出力 ============
-  var csvBtn = document.getElementById("csvBtn");
-  if (csvBtn) {
-    csvBtn.addEventListener("click", function () {
-      var rows = [["プラットフォーム", "手取り額(円)"]];
-      lastResults.forEach(function (r) { rows.push([r.label, Math.round(r.netJpy)]); });
-      var csv = rows.map(function (r) { return r.join(","); }).join("\n");
-      var blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
-      var url = URL.createObjectURL(blob);
-      var a = document.createElement("a");
-      a.href = url; a.download = "手取り比較.csv";
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    });
-  }
-
-  // ============ シナリオ保存(買い切り版) ============
-  var HISTORY_KEY = "creator_net_calc_history_v1";
-  function loadHistory() { try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); } catch (e) { return []; } }
-  function saveHistoryList(list) { try { localStorage.setItem(HISTORY_KEY, JSON.stringify(list)); } catch (e) { alert("保存に失敗しました(ブラウザの保存容量やプライベートブラウジング設定をご確認ください)。"); } }
-
-  function renderHistoryList() {
-    var listEl = document.getElementById("historyList");
-    if (!listEl) return;
-    var list = loadHistory();
-    if (!list.length) { listEl.innerHTML = '<p class="desc" style="margin:0;">まだ保存されたシナリオはありません。</p>'; return; }
-    listEl.innerHTML = "";
-    list.slice().reverse().forEach(function (entry) {
-      try {
-        var label = (entry.label || "(名称未設定)").toString().replace(/[<>&]/g, function(c){return {"<":"&lt;",">":"&gt;","&":"&amp;"}[c];});
-        var row = document.createElement("div");
-        row.className = "history-item";
-        var date = new Date(entry.savedAt || Date.now());
-        var dateStr = date.getFullYear() + "/" + (date.getMonth()+1) + "/" + date.getDate();
-        row.innerHTML = "<div><strong>" + label + "</strong><div class=\"h-meta\">" + dateStr + " ・ " + (entry.price || "-") + "円 ・ 最有利: " + (entry.bestLabel || "-") + "(" + fmtYen(entry.bestNet || 0) + ")</div></div>";
-        var delBtn = document.createElement("button");
-        delBtn.className = "h-del"; delBtn.textContent = "削除";
-        delBtn.addEventListener("click", function () {
-          if (!confirm("「" + label + "」を削除しますか?")) return;
-          saveHistoryList(loadHistory().filter(function (e) { return e.id !== entry.id; }));
-          renderHistoryList();
-        });
-        row.appendChild(delBtn);
-        listEl.appendChild(row);
-      } catch (e) { /* 壊れた履歴データはスキップ */ }
-    });
-  }
-
-  var saveHistoryBtn = document.getElementById("saveHistoryBtn");
-  if (saveHistoryBtn) {
-    saveHistoryBtn.addEventListener("click", function () {
-      var label = document.getElementById("historyLabelInput").value.trim();
-      if (!label) { alert("シナリオ名を入力してください(例: 新刊マンガ 500円版)"); return; }
-      if (!lastResults.length) { alert("先にプラットフォームを選択してください"); return; }
-      var entry = {
-        id: Date.now() + "-" + Math.random().toString(36).slice(2, 8),
-        label: label, savedAt: Date.now(),
-        price: document.getElementById("in-price").value,
-        bestLabel: lastResults[0].label, bestNet: lastResults[0].netJpy
-      };
-      var list = loadHistory(); list.push(entry); saveHistoryList(list);
-      document.getElementById("historyLabelInput").value = "";
-      renderHistoryList();
-    });
-    renderHistoryList();
-  }
+  
 
   document.getElementById("resetBtn").addEventListener("click", function () {
     if (!confirm("入力内容をリセットしますか?")) return;
